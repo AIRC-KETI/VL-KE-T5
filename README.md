@@ -274,7 +274,46 @@ q_vecs = q_vecs.cpu().numpy()
 
 ```
 
-## Downloads
+## 메모리와 GPU 갯수에 따른 index scorer 선택과 사용 방법
+
+cc12m 데이터의 인덱스는 약 33Gb 정도가 됩니다.
+
+### 1. 시스템 메모리가 40Gb 이상 있을 경우
+```python
+from index_scorer import FaissScorerExhaustive
+
+INDEX_PATH="cc12m_filtered.index"
+faiss_scorer = FaissScorerExhaustive(
+            index_path=INDEX_PATH
+        )
+```
+
+### 2. 글로벌 메모리가 40Gb 정도인 GPU가 있을 경우 
+```python
+from index_scorer import FaissScorerExhaustiveGPU
+
+FVECS_ROOT="fvecs"
+GPU_ID=0
+faiss_scorer = FaissScorerExhaustiveGPU(
+            fvec_root=FVECS_ROOT,
+            gpu=GPU_ID
+        )
+```
+
+### 3. 글로벌 메모리가 10Gb 정도인 GPU가 4개 있을 경우 
+```python
+from index_scorer import FaissScorerExhaustiveMultiGPU
+
+FVECS_ROOT="fvecs"
+GPU_ID_LIST=[0, 1, 2, 3]
+faiss_scorer = FaissScorerExhaustiveMultiGPU(
+            fvec_root=FVECS_ROOT,
+            gpu_list=GPU_ID_LIST
+        )
+```
+
+
+## Download
 
 ### Models
 
