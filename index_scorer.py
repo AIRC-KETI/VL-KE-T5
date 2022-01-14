@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import os
 import glob
 import logging
@@ -63,24 +62,22 @@ class FaissScorerBase(object):
 class FaissScorer(FaissScorerBase):
 
     def __init__(self, 
-            fvec_root,
+            index_path,
+            fvec_root="",
             proportion_for_training=1.0,
             index_str="IVF65536,Flat",
             nprobe=4,
             ) -> None:
         super(FaissScorer, self).__init__(fvec_root)
         
+        self.index_path=index_path
         self.proportion_for_training = proportion_for_training
         
         self.index = self.load_index(index_str)
         self.index.nprobe = nprobe
 
     def load_index(self, index_str="IVF65536,Flat"):
-        index_fname = self.page_info.get("index_fname", None)
-
-        if index_fname is None:
-            index_fname = "wiki.index"
-            index_path = os.path.join(self.data_root, index_fname)
+        if not os.path.isfile(self.index_path):
             data = self.load_data(self.proportion_for_training)
             d = data.shape[-1]
             index = faiss.index_factory(d, index_str, faiss.METRIC_INNER_PRODUCT)
@@ -90,38 +87,28 @@ class FaissScorer(FaissScorerBase):
             data = self.load_data()
             logger.info('adding index...')
             index.add(data)
-            faiss.write_index(index, index_path)
+            faiss.write_index(index, self.index_path)
         
-        index_path = os.path.join(self.data_root, index_fname)
-        return faiss.read_index(index_path)
+        return faiss.read_index(self.index_path)
     
-    def get_topk(self, query_vec, k=4, normalize=False):
-        if normalize is not None:
-            if normalize:
-                query_vec = self.normalize(query_vec)
-        elif self.norm:
-            query_vec = self.normalize(query_vec)
-
+    def get_topk(self, query_vec, k=4):
         return self.index.search(query_vec, k)
     
 
 class FaissScorerExhaustive(FaissScorerBase):
     def __init__(self, 
-            fvec_root,
+            index_path,
+            fvec_root="",
             nprobe=1,
             ) -> None:
         super(FaissScorerExhaustive, self).__init__(fvec_root)
-        
+        self.index_path=index_path
+
         self.index = self.load_index()
         self.index.nprobe = nprobe
 
     def load_index(self):
-        index_fname = self.page_info.get("index_exhaustive_fname", None)
-        
-        if index_fname is None:
-            index_fname = "wiki_exhaustive.index"
-            index_path = os.path.join(self.data_root, index_fname)
-
+        if not os.path.isfile(self.index_path):
             logger.info('loading fvecs...')
             data = self.load_data()
             d = data.shape[-1]
@@ -130,18 +117,11 @@ class FaissScorerExhaustive(FaissScorerBase):
             logger.info('adding index...')
             index.add(data)
             
-            faiss.write_index(index, index_path)
+            faiss.write_index(index, self.index_path)
         
-        index_path = os.path.join(self.data_root, index_fname)
-        return faiss.read_index(index_path)
+        return faiss.read_index(self.index_path)
     
-    def get_topk(self, query_vec, k=4, normalize=False):
-        if normalize is not None:
-            if normalize:
-                query_vec = self.normalize(query_vec)
-        elif self.norm:
-            query_vec = self.normalize(query_vec)
-
+    def get_topk(self, query_vec, k=4):
         return self.index.search(query_vec, k)
 
 
