@@ -1,5 +1,45 @@
 # KE-T5-Vision
 
+KE-T5-Vision은 [KE-T5](https://github.com/AIRC-KETI/ke-t5)와 [ViT](https://github.com/google-research/vision_transformer)의 임베딩 벡터를 Vision-Language parallel Corpus를 이용하여 정렬한 모델입니다.
+영어와 한국어 모두 지원하며, Vision-Language Parallel 데이터 셋들을 Google 번역 API를 이용하여 한국어로 번역한 데이터를 추가적으로 이용하였습니다.
+
+학습에 사용된 Vision-Language Parallel 데이터셋은 다음과 같습니다.
+
+
+<table>
+    <tr>
+        <td colspan="5">English</td>
+        <td colspan="5">Korean (Translated)</td>
+        <td>Korean</td>
+    </tr>
+    <tr>
+        <td>CC 3M</td>
+        <td>COCO</td>
+        <td>SBU</td>
+        <td>Visual Genome</td>
+        <td>WIT</td>
+        <td>CC 3M</td>
+        <td>COCO</td>
+        <td>SBU</td>
+        <td>Visual Genome</td>
+        <td>WIT</td>
+        <td>WIT</td>
+    </tr>
+    <tr>
+        <td>2,862,265</td>
+        <td>414,113</td>
+        <td>772,438</td>
+        <td>4,322,358</td>
+        <td>3,265,279</td>
+        <td>2,862,264</td>
+        <td>414,113</td>
+        <td>772,438</td>
+        <td>4,322,358</td>
+        <td>3,265,273</td>
+        <td>54,956</td>
+    </tr>
+</table>
+
 
 ## 필요 패키지 설치
 
@@ -8,6 +48,8 @@
     conda install -c pytorch faiss-gpu # or faiss-cpu
     pip install transformers sentencepiece
 ```
+
+faiss의 자세한 설차 방법은 [FAISS](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md)를 참고하시길 바랍니다.
 
 ## 모델 사용 방법
 
@@ -288,7 +330,18 @@ faiss_scorer = FaissScorerExhaustive(
         )
 ```
 
-### 2. 글로벌 메모리가 40Gb 정도인 GPU가 있을 경우 
+### 2. 시스템 메모리가 작은 경우
+```python
+from index_scorer import FaissScorer
+
+INDEX_PATH="cc12m_filtered_OPQ64_256-IVF262144_HNSW32-PQ64.index"
+# INDEX_PATH="cc12m_filtered_OPQ192_768-IVF262144_HNSW32-PQ192.index"
+faiss_scorer = FaissScorer(
+            index_path=INDEX_PATH,
+        )
+```
+
+### 3. 글로벌 메모리가 40Gb 정도인 GPU가 있을 경우 
 ```python
 from index_scorer import FaissScorerExhaustiveGPU
 
@@ -300,7 +353,7 @@ faiss_scorer = FaissScorerExhaustiveGPU(
         )
 ```
 
-### 3. 글로벌 메모리가 10Gb 정도인 GPU가 4개 있을 경우 
+### 4. 글로벌 메모리가 10Gb 정도인 GPU가 4개 있을 경우 
 ```python
 from index_scorer import FaissScorerExhaustiveMultiGPU
 
@@ -323,6 +376,101 @@ faiss_scorer = FaissScorerExhaustiveMultiGPU(
 ### Data
 
 
-| Model | Data | url data | fvecs | exhaustive index |
-| --- | --- | --- | --- | --- |
-| VisionT5MeanBiEncoder | CC 12M | [Download](https://drive.google.com/file/d/1gyAWODO70no6RQMuokW8JXEsFdHDJ7mc/view?usp=sharing) | [Download](https://drive.google.com/drive/folders/16yPfEwOjIGMo7kqiu9L4iXQUjJQ_aqDz?usp=sharing) | [Download](https://drive.google.com/file/d/19HsMknZJj43lOCmTXlQ32lIZSm7VFhpL/view?usp=sharing) |
+| Model | Data | # of images | url data | fvecs | exhaustive index | OPQ64-256 | OPQ192_768 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| VisionT5MeanBiEncoder | CC 12M | 10,793,580 | [(1.67GB)](https://drive.google.com/file/d/1gyAWODO70no6RQMuokW8JXEsFdHDJ7mc/view?usp=sharing) | [(30.96GB)](https://drive.google.com/drive/folders/16yPfEwOjIGMo7kqiu9L4iXQUjJQ_aqDz?usp=sharing) | [(30.88GB)](https://drive.google.com/file/d/19HsMknZJj43lOCmTXlQ32lIZSm7VFhpL/view?usp=sharing) | [(1.04GB)](https://drive.google.com/file/d/1Y1kYpkjYyqdyVTkf6o_VRuytBO0nc9ZE/view?usp=sharing) | [(2.83GB)](https://drive.google.com/file/d/1UR-cuah-n5ssSdTyvuUMBa-3K0PBUKLf/view?usp=sharing) |
+
+
+## Custom image data 사용하기
+
+개인적으로 준비한 이미지를 이용하고 싶으신 경우 아래 블럭과 같이 tsv 포맷으로 이미지와 이미지의 URL을 만들어 줍니다.
+
+(꼭 image URL일 필요는 없습니다. 2번째 칼럼 값이 return 되기 때문에 해당 이미지에 대하여 return하고 싶은 값이면 됩니다.)
+
+
+test.tsv
+```tsv
+{path_to_image_0}\t{image_url_0}
+{path_to_image_1}\t{image_url_1}
+{path_to_image_2}\t{image_url_2}
+...
+```
+
+`create_index4retriever.py`를 이용하여 index를 만들어 줍니다.
+
+
+```bash
+DATA_PATH=test.tsv
+FVECS_OUT_DIR=test_fvecs
+ENCODER_PATH=hf_model
+
+CUDA_VISIBLE_DEVICES="0,1,2,3" python -m torch.distributed.launch --nproc_per_node=4 create_index4retriever.py \
+--batch_size 64 \
+--batch_write \
+--model_cls VisionT5MeanBiEncoder \
+--data_path $DATA_PATH \
+--fvecs_dir $FVECS_OUT_DIR \
+--hf_path $ENCODER_PATH
+
+
+# # GPU가 하나만 있는 경우
+# python create_index4retriever.py \
+# --batch_size 64 \
+# --batch_write \
+# --model_cls VisionT5MeanBiEncoder \
+# --data_path $DATA_PATH \
+# --fvecs_dir $FVECS_OUT_DIR \
+# --hf_path $ENCODER_PATH
+```
+
+2번째 칼럼이 image url인 경우 아래와 같이 테스트할 query json 파일을 만듭니다.
+
+
+test_query.json
+```json
+[
+    "따뜻한 분위기의 카페",
+    "화려한 원피스를 입은 젊은 여성",
+    "심플한 원피스를 입은 젊은 여성",
+    "축구경기를 응원하는 사람들",
+    "강아지와 해변을 산책하는 남자",
+    "강아지와 해변을 산책하는 여자",
+]
+```
+
+`retrieve_images.py`를 이용하여 검색된 이미지를 확인합니다.
+
+```bash
+DATA_PATH=test.tsv
+FVECS_OUT_DIR=test_fvecs
+ENCODER_PATH=hf_model
+QUERY_PATH=test_query.json
+MD_OUT_DIR=md_out
+
+python retrieve_images.py \
+--data_path $DATA_PATH \
+--fvecs_dir $FVECS_OUT_DIR \
+--hf_path $ENCODER_PATH \
+--query_path $QUERY_PATH \
+--markdown_out $MD_OUT_DIR \
+--model_cls VisionT5MeanBiEncoder
+--
+
+```
+
+
+`--markdown_out`으로 출력된 markdown 파일들을 확인합니다. VS code와 같은 편집기로 확인하면 Preview를 통해 한눈에 볼 수 있습니다.
+
+
+## Examples
+
+cc12m에서 검색된 이미지 샘플들을 참조하려면 [CC 12M 샘플](samples/samples_cc12m.md)을 참조하세요.
+
+
+## Acknowledgement
+
+본 연구는 '자기지도 학습에 의한 시각적 상식으로 영상에서 보이지 않는 부분을 복원하는 기술’(2021-0-00537)의 지원을 받아 개발되었습니다.
+
+# TODO
+
+- [ ] MMCOMMONS 100M 인덱스 만들기

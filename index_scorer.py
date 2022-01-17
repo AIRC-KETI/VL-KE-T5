@@ -30,6 +30,20 @@ def ivecs_read(fname):
 def fvecs_read(fname):
     return ivecs_read(fname).view('float32')
 
+def write_fvecs(outpath, np_arr):
+    dim = np_arr.shape[-1]
+    with open(outpath, 'wb') as f:
+        for data in np_arr:
+            f.write((dim).to_bytes(4, byteorder='little'))
+            f.write(data.tobytes())
+
+def write_fvecs_append(outpath, np_arr):
+    dim = np_arr.shape[-1]
+    with open(outpath, 'ab') as f:
+        for data in np_arr:
+            f.write((dim).to_bytes(4, byteorder='little'))
+            f.write(data.tobytes())
+
 
 class FaissScorerBase(object):
     def __init__(self, 

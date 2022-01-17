@@ -47,67 +47,18 @@ from modeling_encoder import (
     VisionT5MeanBiEncoder,
 )
 
+from training_retriever import (
+    create_directory_info,
+    get_env_var,
+    MODEL_CLS,
+)
+
+from index_scorer import (
+    write_fvecs,
+    write_fvecs_append
+)
+
 logger = logging.getLogger(__name__)
-
-def create_dir_if_not_exist(path):
-    if not os.path.isdir(path):
-        os.makedirs(path, exist_ok=True)
-
-
-def create_directory_info(args, create_dir=True):
-
-    model_dir = os.path.join(args.output_dir, "{}-{}-{}".format(
-        args.model_cls.replace('/', '_'), 
-        args.vision_model.replace('/', '_'), 
-        args.language_model.replace('/', '_')))
-    if args.dir_suffix is not None:
-        model_dir = '_'.join([model_dir, args.dir_suffix])
-    weights_dir = os.path.join(model_dir, "weights")
-    logs_dir = os.path.join(model_dir, "logs")
-
-    path_info = {
-        'model_dir': model_dir,
-        'weights_dir': weights_dir,
-        'logs_dir': logs_dir,
-    }
-
-    if create_dir:
-        for k, v in path_info.items():
-            create_dir_if_not_exist(v)
-
-    path_info['best_model_path'] = os.path.join(weights_dir, "best_model.pth")
-    path_info['ckpt_path'] = os.path.join(weights_dir, "checkpoint.pth")
-    return path_info
-
-def get_env_var(env_var, type_cls, default_val):
-    if env_var in os.environ:
-        return type_cls(os.environ[env_var])
-    return default_val
-
-
-MODEL_CLS = {
-    "VisionT5SimpleBiEncoder": {
-        "model_cls": VisionT5SimpleBiEncoder,
-    },
-    "VisionT5MeanBiEncoder": {
-        "model_cls": VisionT5MeanBiEncoder,
-    },
-}
-
-
-def write_fvecs(outpath, np_arr):
-    dim = np_arr.shape[-1]
-    with open(outpath, 'wb') as f:
-        for data in np_arr:
-            f.write((dim).to_bytes(4, byteorder='little'))
-            f.write(data.tobytes())
-
-def write_fvecs_append(outpath, np_arr):
-    dim = np_arr.shape[-1]
-    with open(outpath, 'ab') as f:
-        for data in np_arr:
-            f.write((dim).to_bytes(4, byteorder='little'))
-            f.write(data.tobytes())
 
 
 def main():
@@ -201,7 +152,7 @@ def main():
 
     # create model
     model = model_cls.from_pretrained(args.hf_path)
-    logger.info("loaded model from pre_trained: {}".format(args.hf_path))
+    logger.info("weights were loaded from pre_trained: {}".format(args.hf_path))
     model = model.cuda()
 
     # get tokenizer

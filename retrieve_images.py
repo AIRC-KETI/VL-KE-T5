@@ -49,70 +49,11 @@ from modeling_encoder import (
     VisionT5MeanBiEncoder,
 )
 
+from training_retriever import (
+    create_directory_info, 
+    MODEL_CLS)
+
 logger = logging.getLogger(__name__)
-
-
-def create_dir_if_not_exist(path):
-    if not os.path.isdir(path):
-        os.makedirs(path, exist_ok=True)
-
-
-def create_directory_info(args, create_dir=True):
-
-    model_dir = os.path.join(args.output_dir, "{}-{}-{}".format(
-        args.model_cls.replace('/', '_'), 
-        args.vision_model.replace('/', '_'), 
-        args.language_model.replace('/', '_')))
-    if args.dir_suffix is not None:
-        model_dir = '_'.join([model_dir, args.dir_suffix])
-    weights_dir = os.path.join(model_dir, "weights")
-    logs_dir = os.path.join(model_dir, "logs")
-
-    path_info = {
-        'model_dir': model_dir,
-        'weights_dir': weights_dir,
-        'logs_dir': logs_dir,
-    }
-
-    if create_dir:
-        for k, v in path_info.items():
-            create_dir_if_not_exist(v)
-
-    path_info['best_model_path'] = os.path.join(weights_dir, "best_model.pth")
-    path_info['ckpt_path'] = os.path.join(weights_dir, "checkpoint.pth")
-    return path_info
-
-def get_env_var(env_var, type_cls, default_val):
-    if env_var in os.environ:
-        return type_cls(os.environ[env_var])
-    return default_val
-
-
-def isin(tgt, pred_topk):
-    for t in tgt:
-        if t in pred_topk:
-            return 1
-    return 0
-
-def topk_acc(targets, predictions, metric_meter):
-    for topk in metric_meter.keys():
-        for tgt, pred in zip(targets, predictions):
-            pred_topk = pred[:topk]
-            val = isin(tgt, pred_topk)
-            metric_meter[topk].update(val)
-    return metric_meter
-            
-
-
-
-MODEL_CLS = {
-    "VisionT5SimpleBiEncoder": {
-        "model_cls": VisionT5SimpleBiEncoder,
-    },
-    "VisionT5MeanBiEncoder": {
-        "model_cls": VisionT5MeanBiEncoder,
-    },
-}
 
 
 
@@ -122,6 +63,8 @@ def main():
     # data
     parser.add_argument("--data_path",
                         default="cc12m_filtered.tsv", type=str)
+    parser.add_argument("--query_path",
+                        default="query.json", type=str)
     parser.add_argument("--fvecs_dir",
                         default=None, type=str)
 
@@ -218,13 +161,10 @@ def main():
     if not os.path.isdir(markdown_out_dir):
         os.makedirs(markdown_out_dir, exist_ok=True)
 
+    text_query = json.load(open(args.query_path, "r"))
 
     with torch.no_grad():
-        text_query = [
-            "심플한 원피스를 입은 젊은 여성",
-            "원버튼 카멜브라운 캐시미어 롱코트",
-        ]
-        #text_feature = text_tokenizer(text_query, return_tensors="pt", truncation=True)
+        
         text_feature = text_tokenizer(text_query, return_tensors="pt", truncation='longest_first', padding=True)
         
         q_vecs = model.encode_text({
@@ -243,12 +183,6 @@ def main():
                     "image_url": ref_data[i]["image_url"]
                 } for k, s, i in zip(range(args.topk), score, index)]
             result_list.append(result)
-        
-        # results = [ {
-        #     "k": t+1,
-        #     "score": score,
-        #     "image_url": ref_data[index]["image_url"]
-        # } for t, score, index in zip(range(args.topk), scores[0], indice[0])]
 
         img_size=args.image_size
 
