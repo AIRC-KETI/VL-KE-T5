@@ -81,6 +81,7 @@ class FaissScorer(FaissScorerBase):
             proportion_for_training=1.0,
             index_str="IVF65536,Flat",
             nprobe=4,
+            **kwargs,
             ) -> None:
         super(FaissScorer, self).__init__(fvec_root)
         
@@ -114,6 +115,7 @@ class FaissScorerExhaustive(FaissScorerBase):
             index_path,
             fvec_root="",
             nprobe=1,
+            **kwargs,
             ) -> None:
         super(FaissScorerExhaustive, self).__init__(fvec_root)
         self.index_path=index_path
@@ -146,6 +148,7 @@ class FaissScorerExhaustiveGPU(object):
             fvec_root,
             nprobe=1,
             gpu=0,
+            **kwargs,
             ) -> None:
         self.gpu = gpu
 
@@ -180,7 +183,8 @@ class FaissScorerExhaustiveMultiGPU(object):
     def __init__(self, 
             fvec_root,
             nprobe=1,
-            gpu_list=None
+            gpu_list=None,
+            **kwargs,
             ) -> None:
         self.fpath_list = list(sorted(list(glob.glob(os.path.join(fvec_root, "*")))))
 

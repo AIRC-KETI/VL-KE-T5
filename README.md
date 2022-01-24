@@ -379,7 +379,7 @@ faiss_scorer = FaissScorerExhaustiveMultiGPU(
 | Model | Data | # of images | url data | fvecs | exhaustive index | OPQ64-256 | OPQ192_768 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | VisionT5MeanBiEncoder | CC 12M | 10,793,580 | [(1.67GB)](https://drive.google.com/file/d/1gyAWODO70no6RQMuokW8JXEsFdHDJ7mc/view?usp=sharing) | [(30.96GB)](https://drive.google.com/drive/folders/16yPfEwOjIGMo7kqiu9L4iXQUjJQ_aqDz?usp=sharing) | [(30.88GB)](https://drive.google.com/file/d/19HsMknZJj43lOCmTXlQ32lIZSm7VFhpL/view?usp=sharing) | [(1.04GB)](https://drive.google.com/file/d/1Y1kYpkjYyqdyVTkf6o_VRuytBO0nc9ZE/view?usp=sharing) | [(2.83GB)](https://drive.google.com/file/d/1UR-cuah-n5ssSdTyvuUMBa-3K0PBUKLf/view?usp=sharing) |
-
+| VisionT5MeanBiEncoder | mmcommons | - | [(14.31GB)](https://drive.google.com/file/d/1E98IakJAhOrkwisxYgtkp8K34sFT7i50/view?usp=sharing) | [(284GB)](https://drive.google.com/drive/folders/1USh51znf_uwiXkZh5-3X0bxbz5lD6_UD?usp=sharing) | - | [(6.97GB)](https://drive.google.com/file/d/1q-7dn7yyQc6Q5ientagj_pTZT5MLhUB7/view?usp=sharing) | - |
 
 ## Custom image data 사용하기
 
@@ -473,4 +473,4 @@ cc12m에서 검색된 이미지 샘플들을 참조하려면 [CC 12M 샘플](sam
 
 # TODO
 
-- [ ] MMCOMMONS 100M 인덱스 만들기
+- [ X ] MMCOMMONS 100M 인덱스 만들기

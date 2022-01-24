@@ -108,11 +108,13 @@ class DatasetForImages(Dataset):
                     file_path: str,
                     image_tokenizer: ViTFeatureExtractor,
                     shard_idx: int=0,
-                    num_shards: int=1
+                    num_shards: int=1,
+                    image_root_dir=None,
                  ):
         super().__init__()
         self.file_path = file_path
         self.image_tokenizer = image_tokenizer
+        self.image_root_dir=image_root_dir
 
         logger.info("loading dataset...")
 
@@ -135,6 +137,8 @@ class DatasetForImages(Dataset):
         sample = self.data[index]
 
         path = sample["path"]
+        if self.image_root_dir is not None:
+            path = os.path.join(self.image_root_dir, path)
 
         image = Image.open(path).convert("RGB")
 

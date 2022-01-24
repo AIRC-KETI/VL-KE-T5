@@ -42,7 +42,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from transformers import AutoTokenizer, ViTFeatureExtractor
 from torch.utils.tensorboard import SummaryWriter
 
-from index_scorer import FaissScorerExhaustiveGPU, FaissScorerExhaustiveMultiGPU
+from index_scorer import FaissScorerExhaustiveGPU, FaissScorerExhaustiveMultiGPU, FaissScorer
 from data_utils import DatasetForImages
 from modeling_encoder import (
     VisionT5SimpleBiEncoder,
@@ -66,6 +66,8 @@ def main():
     parser.add_argument("--query_path",
                         default="query.json", type=str)
     parser.add_argument("--fvecs_dir",
+                        default=None, type=str)
+    parser.add_argument("--index_path",
                         default=None, type=str)
 
     # model
@@ -130,10 +132,14 @@ def main():
 
     model_device = torch.device('cuda:{}'.format(args.model_gpu))
 
-    faiss_scorer = FaissScorerExhaustiveMultiGPU(
-            fvec_root=args.fvecs_dir,
-            gpu_list=args.scorer_gpus
-        )
+    # faiss_scorer = FaissScorerExhaustiveMultiGPU(
+    #         fvec_root=args.fvecs_dir,
+    #         gpu_list=args.scorer_gpus
+    #     )
+    faiss_scorer = FaissScorer(
+        index_path=args.index_path,
+        fvec_root=args.fvecs_dir,
+    )
     
     ref_data = [
             item for item in tqdm.tqdm(csv.DictReader(

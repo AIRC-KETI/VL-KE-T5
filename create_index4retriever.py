@@ -69,6 +69,8 @@ def main():
                         default="cc12m_filtered.tsv", type=str)
     parser.add_argument("--fvecs_dir",
                         default=None, type=str)
+    parser.add_argument("--image_root_dir",
+                        default=None, type=str)
 
     # model
     parser.add_argument("--vision_model",
@@ -165,7 +167,8 @@ def main():
         args.data_path,
         image_tokenizer=image_tokenizer,
         shard_idx=args.rank,
-        num_shards=args.world_size)
+        num_shards=args.world_size,
+        image_root_dir=args.image_root_dir)
 
     collate_fn = dataset.get_collate_fn()
     
