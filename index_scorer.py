@@ -133,7 +133,8 @@ class FaissScorerExhaustive(FaissScorerBase):
             logger.info('adding index...')
             index.add(data)
             
-            faiss.write_index(index, self.index_path)
+            return index
+            # faiss.write_index(index, self.index_path)
         
         return faiss.read_index(self.index_path)
     
