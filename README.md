@@ -1,6 +1,6 @@
-# KE-T5-Vision
+# VL-KE-T5
 
-KE-T5-Vision은 [KE-T5](https://github.com/AIRC-KETI/ke-t5)와 [ViT](https://github.com/google-research/vision_transformer)의 임베딩 벡터를 Vision-Language parallel Corpus를 이용하여 정렬한 모델입니다.
+VL-KE-T5은 [KE-T5](https://github.com/AIRC-KETI/ke-t5)와 [ViT](https://github.com/google-research/vision_transformer)의 임베딩 벡터를 Vision-Language parallel Corpus를 이용하여 정렬한 모델입니다.
 영어와 한국어 모두 지원하며, Vision-Language Parallel 데이터 셋들을 Google 번역 API를 이용하여 한국어로 번역한 데이터를 추가적으로 이용하였습니다.
 
 학습에 사용된 Vision-Language Parallel 데이터셋은 다음과 같습니다.
@@ -474,4 +474,6 @@ mmcommons에서 검색된 이미지 샘플들을 참조하려면 [exhaustive 샘
 
 # TODO
 
-- [ X ] MMCOMMONS 100M 인덱스 만들기
+- [ ] hard negative sample 만들기
+- [ ] language model gradient freeze 하고 학습하기
+- [ ] 언어 모델 바꾸기 
