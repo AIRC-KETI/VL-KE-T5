@@ -373,6 +373,8 @@ faiss_scorer = FaissScorerExhaustiveMultiGPU(
 
 [VisionT5MeanBiEncoder](https://drive.google.com/file/d/1Cq9GldmJz7qpHnJQoXrnA8YD317_3lOz/view?usp=sharing)
 
+[VisionT5MeanBiEncoder (Language Lock)](https://drive.google.com/file/d/1WNZVYuAva7sq4x5lKmlMYTh2S1FwFVix/view?usp=sharing)
+
 ### Data
 
 
@@ -380,6 +382,7 @@ faiss_scorer = FaissScorerExhaustiveMultiGPU(
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | VisionT5MeanBiEncoder | CC 12M | 10,793,580 | [(1.67GB)](https://drive.google.com/file/d/1gyAWODO70no6RQMuokW8JXEsFdHDJ7mc/view?usp=sharing) | [(30.96GB)](https://drive.google.com/drive/folders/16yPfEwOjIGMo7kqiu9L4iXQUjJQ_aqDz?usp=sharing) | [(30.88GB)](https://drive.google.com/file/d/19HsMknZJj43lOCmTXlQ32lIZSm7VFhpL/view?usp=sharing) | [(1.04GB)](https://drive.google.com/file/d/1Y1kYpkjYyqdyVTkf6o_VRuytBO0nc9ZE/view?usp=sharing) | [(2.83GB)](https://drive.google.com/file/d/1UR-cuah-n5ssSdTyvuUMBa-3K0PBUKLf/view?usp=sharing) |
 | VisionT5MeanBiEncoder | mmcommons | 99,144,306 | [(14.31GB)](https://drive.google.com/file/d/1E98IakJAhOrkwisxYgtkp8K34sFT7i50/view?usp=sharing) | [(284GB)](https://drive.google.com/drive/folders/1USh51znf_uwiXkZh5-3X0bxbz5lD6_UD?usp=sharing) | - | [(6.97GB)](https://drive.google.com/file/d/1q-7dn7yyQc6Q5ientagj_pTZT5MLhUB7/view?usp=sharing) | [(19.29GB)](https://drive.google.com/file/d/1sg8Ylt-Owo1xtMPWUPyd4bhyQwSD9BjV/view?usp=sharing) |
+| VisionT5MeanBiEncoder (Language Lock) | CC 12M | 10,793,580 | [(14.31GB)](https://drive.google.com/file/d/1E98IakJAhOrkwisxYgtkp8K34sFT7i50/view?usp=sharing) | [(33.2GB)](https://drive.google.com/drive/folders/1ypdMe-7ssv08fDm9QgpDBDQe66pIDV-L?usp=sharing) | - | - | - |
 
 ## Custom image data 사용하기
 

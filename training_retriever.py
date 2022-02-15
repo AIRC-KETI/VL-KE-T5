@@ -222,6 +222,8 @@ def main():
                         default="data/vl_parallel/train_384_filtered.json", type=str)
     parser.add_argument("--validation_path",
                         default="data/vl_parallel/validation_384_filtered.json", type=str)
+    parser.add_argument("--image_root_dir",
+                        default=None, type=str)
 
     # model
     parser.add_argument("--vision_model",
@@ -292,6 +294,9 @@ def main():
                         type=int, help="seed for torch manual seed")
     parser.add_argument("--deterministic", action='store_true',
                         help="deterministic")
+    
+    parser.add_argument("--freeze_lm", action='store_true',
+                        help="freeze language model")
 
     args = parser.parse_args()
 
@@ -345,6 +350,8 @@ def main():
 
     # create model
     model = model_cls(args)
+    if args.freeze_lm:
+        model.language_encoder.freeze_encoder()
     model = model.cuda()
 
     # get optimizer
@@ -363,14 +370,16 @@ def main():
     train_dataset = DatasetForVLAlign(
             file_path=args.train_path,
             image_tokenizer=image_tokenizer,
-            text_tokenizer=text_tokenizer
+            text_tokenizer=text_tokenizer,
+            image_root_dir=args.image_root_dir
         )
 
         
     validation_dataset = DatasetForVLAlign(
             file_path=args.validation_path,
             image_tokenizer=image_tokenizer,
-            text_tokenizer=text_tokenizer
+            text_tokenizer=text_tokenizer,
+            image_root_dir=args.image_root_dir
         )
 
     collate_fn = validation_dataset.get_collate_fn()
@@ -515,7 +524,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, args, path_info, sum
     
     steps_per_epoch = len(train_loader)
 
-    # switch to train mode
+    # switch to train mode (for drop out)
     model.train()
     end = time.time()
 
@@ -597,7 +606,7 @@ def validate(eval_loader, model, epoch, args):
     losses = AverageMeter()
     mrr_meter = AverageMeter()    
 
-    # switch to evaluate mode
+    # switch to evaluate mode (for drop out)
     model.eval()
 
     with torch.no_grad():
@@ -658,3 +667,11 @@ if __name__ == "__main__":
 
 # CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever.py
 
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever.py \
+# --train_path ../downloaded_data/whole-filtered_wo_cc12m.json \
+# --validation_path ../downloaded_data/validation-filtered_wo_cc12m.json \
+# --image_root_dir ../downloaded_data \
+# --dir_suffix freeze_lm \
+# --epochs 3 \
+# --batch_size 32 \
+# --freeze_lm

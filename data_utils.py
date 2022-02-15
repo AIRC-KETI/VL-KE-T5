@@ -59,12 +59,14 @@ class DatasetForVLAlign(Dataset):
                     self,
                     file_path: str,
                     image_tokenizer: ViTFeatureExtractor,
-                    text_tokenizer: AutoTokenizer
+                    text_tokenizer: AutoTokenizer,
+                    image_root_dir=None
                  ):
         super().__init__()
         self.file_path = file_path
         self.image_tokenizer = image_tokenizer
         self.text_tokenizer = text_tokenizer
+        self.image_root_dir=image_root_dir
 
         logger.info("loading dataset...")
         self.data = json.load(open(file_path, "r"))
@@ -74,6 +76,9 @@ class DatasetForVLAlign(Dataset):
         sample = self.data[index]
 
         path = sample["path"]
+        if self.image_root_dir is not None:
+            path = os.path.join(self.image_root_dir, path)
+            
         description = sample["description"]
 
         image = Image.open(path)

@@ -121,6 +121,17 @@ class T5EncoderSimple(T5EncoderModel):
 
         self.pooler = SimplePooler(config.d_model)
 
+    def freeze_encoder(self):
+        for block_e in self.encoder.block:
+            for param_e in block_e.parameters():
+                param_e.requires_grad = False
+        
+        for param_e in self.encoder.final_layer_norm.parameters():
+            param_e.requires_grad = False
+        
+        for param_e in self.shared.parameters():
+            param_e.requires_grad = False
+
     def forward(
         self,
         input_ids=None,
@@ -183,6 +194,17 @@ class T5EncoderMean(T5EncoderModel):
         super(T5EncoderMean, self).__init__(config)
 
         self.pooler = MeanPooler(config.d_model)
+
+    def freeze_encoder(self):
+        for block_e in self.encoder.block:
+            for param_e in block_e.parameters():
+                param_e.requires_grad = False
+        
+        for param_e in self.encoder.final_layer_norm.parameters():
+            param_e.requires_grad = False
+        
+        for param_e in self.shared.parameters():
+            param_e.requires_grad = False
 
     def forward(
         self,

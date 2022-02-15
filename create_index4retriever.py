@@ -224,4 +224,10 @@ if __name__ == "__main__":
 # --hf_path default \
 # --dir_suffix od1
 
-
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 create_index4retriever.py \
+# --data_path ../downloaded_data/cc12m/cc12m_filtered_new.tsv \
+# --image_root_dir ../downloaded_data/cc12m/images_384 \
+# --fvecs_dir fvecs_cc12m_freeze_lm \
+# --hf_path default \
+# --dir_suffix freeze_lm \
+# --batch_size 64 

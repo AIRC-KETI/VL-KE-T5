@@ -18,6 +18,7 @@ import os
 import csv
 import time
 import json
+import copy
 import shutil
 import logging
 import hashlib
@@ -43,7 +44,7 @@ from transformers import AutoTokenizer, ViTFeatureExtractor
 from torch.utils.tensorboard import SummaryWriter
 
 from index_scorer import FaissScorerExhaustiveGPU, FaissScorerExhaustiveMultiGPU, FaissScorer
-from data_utils import DatasetForImages
+from data_utils import DatasetForVLAlign
 from modeling_encoder import (
     VisionT5SimpleBiEncoder,
     VisionT5MeanBiEncoder,
@@ -55,6 +56,9 @@ from training_retriever import (
 
 logger = logging.getLogger(__name__)
 
+def batchify_no_collate(a, bsz):
+    k = len(a)//bsz
+    return [a[i*bsz:(i+1)*bsz] if i<k else a[i*bsz:] for i in range(k+1)]
 
 
 def main():
@@ -62,15 +66,16 @@ def main():
 
     # data
     parser.add_argument("--data_path",
-                        default="cc12m_filtered.tsv", type=str)
-    parser.add_argument("--query_path",
-                        default="query.json", type=str)
+                        default="../downloaded_data/train-filtered_wo_cc12m.json", type=str)
+    parser.add_argument("--out_path",
+                        default="../downloaded_data/train-filtered_wo_cc12m-hn.json", type=str)
+
+    parser.add_argument("--tsv_path",
+                        default="../downloaded_data/whole-filtered_wo_cc12m.tsv", type=str)
     parser.add_argument("--fvecs_dir",
                         default=None, type=str)
     parser.add_argument("--index_path",
                         default=None, type=str)
-    parser.add_argument("--index_str",
-                        default="IVF65536,Flat", type=str)
 
     # model
     parser.add_argument("--vision_model",
@@ -86,20 +91,16 @@ def main():
                         default=None, type=str)
     parser.add_argument("--output_dir",
                         default="output", type=str)
-    parser.add_argument("--markdown_out",
-                        default="md", type=str)
 
     # resume
     parser.add_argument("--hf_path", default=None, type=str,
                         help="path to score huggingface model")
     
-    parser.add_argument("--topk", default=10,
+    parser.add_argument("--topk", default=20,
                         type=int, help="top k")
-    parser.add_argument("--image_size", default=180,
-                        type=int, help="image size for html formatting")
 
     # default settings for training, evaluation
-    parser.add_argument("--batch_size", default=16,
+    parser.add_argument("--batch_size", default=64,
                         type=int, help="mini batch size")
     parser.add_argument("--num_workers", default=0, type=int,
                         help="number of workers")
@@ -119,7 +120,7 @@ def main():
     parser.add_argument('--model_gpu',
                         default=0, type=int)
     parser.add_argument('--scorer_gpus', nargs="+",
-                        default=[1,2,3,4], type=int)
+                        default=[1,2,3], type=int)
 
     args = parser.parse_args()
 
@@ -134,19 +135,18 @@ def main():
 
     model_device = torch.device('cuda:{}'.format(args.model_gpu))
 
-    # faiss_scorer = FaissScorerExhaustiveMultiGPU(
-    #         fvec_root=args.fvecs_dir,
-    #         gpu_list=args.scorer_gpus
-    #     )
-    faiss_scorer = FaissScorer(
-        index_path=args.index_path,
-        fvec_root=args.fvecs_dir,
-        index_str=args.index_str,
-    )
+    faiss_scorer = FaissScorerExhaustiveMultiGPU(
+            fvec_root=args.fvecs_dir,
+            gpu_list=args.scorer_gpus
+        )
+    # faiss_scorer = FaissScorer(
+    #     index_path=args.index_path,
+    #     fvec_root=args.fvecs_dir,
+    # )
     
     ref_data = [
             item for item in tqdm.tqdm(csv.DictReader(
-                open(args.data_path, "r"), 
+                open(args.tsv_path, "r"), 
                 delimiter="\t", 
                 quoting=csv.QUOTE_MINIMAL, 
                 fieldnames=['path', 'image_url']
@@ -166,111 +166,43 @@ def main():
     
     model.eval()
 
-    markdown_out_dir = args.markdown_out
-    if not os.path.isdir(markdown_out_dir):
-        os.makedirs(markdown_out_dir, exist_ok=True)
+    
+    # dataset
+    dataset = json.load(open(args.data_path, "r"))
+    dataset_batched = batchify_no_collate(dataset, args.batch_size)
 
-    text_query = json.load(open(args.query_path, "r"))
+    data_w_hard_negative = []
 
     with torch.no_grad():
-        
-        text_feature = text_tokenizer(text_query, return_tensors="pt", truncation='longest_first', padding=True)
-        
-        q_vecs = model.encode_text({
-            "input_ids":text_feature["input_ids"].to(model_device),
-            "attention_mask":text_feature["attention_mask"].to(model_device),})
-        q_vecs = q_vecs.cpu().numpy()
 
-        scores, indice = faiss_scorer.get_topk(q_vecs, args.topk)
+        for batch in tqdm.tqdm(dataset_batched, desc="hardnegative..."):
+            text_query = [ item["description"] for item in batch]
+            text_feature = text_tokenizer(text_query, return_tensors="pt", truncation='longest_first', padding=True)
+            
+            q_vecs = model.encode_text({
+                "input_ids":text_feature["input_ids"].to(model_device),
+                "attention_mask":text_feature["attention_mask"].to(model_device),})
+            q_vecs = q_vecs.cpu().numpy()
 
-        result_list = []
+            scores, indice = faiss_scorer.get_topk(q_vecs, args.topk)
 
-        for t, score, index in zip(range(len(text_query)), scores, indice):
-            result = [ {
-                    "k": k+1,
-                    "score": s,
-                    "image_url": ref_data[i]["image_url"]
-                } for k, s, i in zip(range(args.topk), score, index)]
-            result_list.append(result)
+            result_list = []
 
-        img_size=args.image_size
+            for t, score, index in zip(range(len(text_query)), scores, indice):
+                result = [ {
+                        "k": k+1,
+                        "score": float(s),
+                        "path": ref_data[i]["path"],
+                        "image_url": ref_data[i]["image_url"],
+                    } for k, s, i in zip(range(args.topk), score, index)]
+                result_list.append(result)
 
-        for query, result in zip(text_query, result_list):
-            print(f"query: {query}\nresults\n"+'-'*40)
-            print(result)
-            print('-'*40+'\n\n')
+            for item, result in zip(batch, result_list):
+                new_item = copy.deepcopy(item)
+                new_item["hard_negative_img"] = result
+                data_w_hard_negative.append(new_item)
 
-            md5_hash = hashlib.md5(query.encode("utf-8"))
-            hash_str = md5_hash.hexdigest()
-            markdown_path = os.path.join(markdown_out_dir, hash_str+".md")
-
-
-            HTML_STR = f"""
-<table>
-    <tr>
-    <td>Query</td>
-    <td colspan="3">{query}</td>
-</tr>
-<tr>
-    <td>Top 1</td>
-    <td>Top 2</td>
-    <td>Top 3</td>
-    <td>Top 4</td>
-</tr>
-<tr>
-    <td>
-        <img height="{img_size}" width="{img_size}"
-            src="{result[0]['image_url']}"
-            alt="score: {result[0]['score']:.2f}">
-    </td>
-    <td>
-        <img height="{img_size}" width="{img_size}"
-            src="{result[1]['image_url']}"
-            alt="score: {result[1]['score']:.2f}">
-    </td>
-    <td>
-        <img height="{img_size}" width="{img_size}"
-            src="{result[2]['image_url']}"
-            alt="score: {result[2]['score']:.2f}">
-    </td>
-    <td>
-        <img height="{img_size}" width="{img_size}"
-            src="{result[3]['image_url']}"
-            alt="score: {result[3]['score']:.2f}">
-    </td>
-</tr>
-<tr>
-    <td>Top 5</td>
-    <td>Top 6</td>
-    <td>Top 7</td>
-    <td>Top 8</td>
-</tr>
-<tr>
-    <td>
-        <img height="{img_size}" width="{img_size}"
-            src="{result[4]['image_url']}"
-            alt="score: {result[4]['score']:.2f}">
-    </td>
-    <td>
-        <img height="{img_size}" width="{img_size}"
-            src="{result[5]['image_url']}"
-            alt="score: {result[5]['score']:.2f}">
-    </td>
-    <td>
-        <img height="{img_size}" width="{img_size}"
-            src="{result[6]['image_url']}"
-            alt="score: {result[6]['score']:.2f}">
-    </td>
-    <td>
-        <img height="{img_size}" width="{img_size}"
-            src="{result[7]['image_url']}"
-            alt="score: {result[7]['score']:.2f}">
-    </td>
-</tr>
-</table>
-            """
-            with open(markdown_path, "w") as f:
-                f.write(HTML_STR)
+    json.dump(data_w_hard_negative, open(args.out_path, "w"), indent=4)
 
 
 
@@ -279,7 +211,33 @@ if __name__ == "__main__":
     main()
 
 
-# CUDA_VISIBLE_DEVICES="0,1,2,3,4" python retrieve_images.py \
-# --data_path ../downloaded_data/cc12m/cc12m_filtered_new.tsv \
-# --fvecs_dir fvecs_cc12m_freeze_lm \
-# --hf_path output/VisionT5MeanBiEncoder-google_vit-base-patch16-384-KETI-AIR_ke-t5-base_freeze_lm/hf
+# CUDA_VISIBLE_DEVICES="0,1" python create_hard_negative.py \
+# --data_path ../downloaded_data/train-filtered_wo_cc12m.json \
+# --out_path ../downloaded_data/train-filtered_wo_cc12m-hn.json \
+# --tsv_path ../downloaded_data/whole-filtered_wo_cc12m.tsv \
+# --fvecs_dir fvecs_whole-filtered_wo_cc12m \
+# --hf_path ../hf_model \
+# --model_gpu 0 \
+# --scorer_gpus 1 \
+# --batch_size 128
+
+# CUDA_VISIBLE_DEVICES="2,3" python create_hard_negative.py \
+# --data_path ../downloaded_data/validation-filtered_wo_cc12m.json \
+# --out_path ../downloaded_data/validation-filtered_wo_cc12m-hn.json \
+# --tsv_path ../downloaded_data/whole-filtered_wo_cc12m.tsv \
+# --fvecs_dir fvecs_whole-filtered_wo_cc12m \
+# --hf_path ../hf_model \
+# --model_gpu 0 \
+# --scorer_gpus 1 \
+# --batch_size 128
+
+
+# CUDA_VISIBLE_DEVICES="4,5,6,7" python create_hard_negative.py \
+# --data_path ../downloaded_data/train-filtered.json \
+# --out_path ../downloaded_data/train-filtered-hn.json \
+# --tsv_path ../downloaded_data/whole-filtered.tsv \
+# --fvecs_dir fvecs_whole-filtered \
+# --hf_path ../hf_model \
+# --model_gpu 0 \
+# --scorer_gpus 1 2 3 \
+# --batch_size 128
