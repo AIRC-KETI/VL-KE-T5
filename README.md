@@ -382,7 +382,7 @@ faiss_scorer = FaissScorerExhaustiveMultiGPU(
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | VisionT5MeanBiEncoder | CC 12M | 10,793,580 | [(1.67GB)](https://drive.google.com/file/d/1gyAWODO70no6RQMuokW8JXEsFdHDJ7mc/view?usp=sharing) | [(30.96GB)](https://drive.google.com/drive/folders/16yPfEwOjIGMo7kqiu9L4iXQUjJQ_aqDz?usp=sharing) | [(30.88GB)](https://drive.google.com/file/d/19HsMknZJj43lOCmTXlQ32lIZSm7VFhpL/view?usp=sharing) | [(1.04GB)](https://drive.google.com/file/d/1Y1kYpkjYyqdyVTkf6o_VRuytBO0nc9ZE/view?usp=sharing) | [(2.83GB)](https://drive.google.com/file/d/1UR-cuah-n5ssSdTyvuUMBa-3K0PBUKLf/view?usp=sharing) |
 | VisionT5MeanBiEncoder | mmcommons | 99,144,306 | [(14.31GB)](https://drive.google.com/file/d/1E98IakJAhOrkwisxYgtkp8K34sFT7i50/view?usp=sharing) | [(284GB)](https://drive.google.com/drive/folders/1USh51znf_uwiXkZh5-3X0bxbz5lD6_UD?usp=sharing) | - | [(6.97GB)](https://drive.google.com/file/d/1q-7dn7yyQc6Q5ientagj_pTZT5MLhUB7/view?usp=sharing) | [(19.29GB)](https://drive.google.com/file/d/1sg8Ylt-Owo1xtMPWUPyd4bhyQwSD9BjV/view?usp=sharing) |
-| VisionT5MeanBiEncoder (Language Lock) | CC 12M | 10,793,580 | [(1.67GB)](https://drive.google.com/file/d/1alt2ctw97i5B2mgiw1V31nM1AZ113MgD/view?usp=sharing) | [(33.2GB)](https://drive.google.com/drive/folders/1ypdMe-7ssv08fDm9QgpDBDQe66pIDV-L?usp=sharing) | - | - | [(2.83GB)](https://drive.google.com/file/d/1YY8QiUhbDqND6aHx7U9zPJoT20XM-dgv/view?usp=sharing) |
+| VisionT5MeanBiEncoder (Language Lock) | CC 12M | 10,793,580 | [(1.67GB)](https://drive.google.com/file/d/1alt2ctw97i5B2mgiw1V31nM1AZ113MgD/view?usp=sharing) | [(33.2GB)](https://drive.google.com/drive/folders/1ypdMe-7ssv08fDm9QgpDBDQe66pIDV-L?usp=sharing) | - | [(1.04GB)](https://drive.google.com/file/d/14ElP5ZLvoyXDuPD4e5YCL26BfmKRYhDk/view?usp=sharing) | [(2.83GB)](https://drive.google.com/file/d/1YY8QiUhbDqND6aHx7U9zPJoT20XM-dgv/view?usp=sharing) |
 
 ## Custom image data 사용하기
 
@@ -457,7 +457,6 @@ python retrieve_images.py \
 --query_path $QUERY_PATH \
 --markdown_out $MD_OUT_DIR \
 --model_cls VisionT5MeanBiEncoder
---
 
 ```
 
@@ -471,12 +470,14 @@ cc12m에서 검색된 이미지 샘플들을 참조하려면 [CC 12M 샘플](sam
 
 mmcommons에서 검색된 이미지 샘플들을 참조하려면 [exhaustive 샘플](samples/samples_mmcommons.md), [OPQ192-768 샘플](samples/samples_mmcommons_OPQ192_768.md), [OPQ64-256 샘플](samples/samples_mmcommons_OPQ64_256.md)을 참조하세요.
 
+cc12m에서 언어모델을 학습되지 않도록 gradient를 freeze시키고 학습한 모델로 검색된 이미지 샘플들을 참조하려면 [exhaustive 샘플](samples/samples_cc12m_freeze_lm.md), [OPQ192-768 샘플](samples/samples_cc12m_freeze_lm_OPQ192_768.md), [OPQ64-256 샘플](samples/samples_cc12m_freeze_lm_OPQ64_256.md)을 참조하세요.
+
 ## Acknowledgement
 
 본 연구는 '자기지도 학습에 의한 시각적 상식으로 영상에서 보이지 않는 부분을 복원하는 기술’(2021-0-00537)의 지원을 받아 개발되었습니다.
 
 # TODO
 
+- [X] language model gradient freeze 하고 학습하기
 - [ ] hard negative sample 만들기
-- [ ] language model gradient freeze 하고 학습하기
 - [ ] 언어 모델 바꾸기 

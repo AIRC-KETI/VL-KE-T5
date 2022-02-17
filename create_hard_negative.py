@@ -171,7 +171,7 @@ def main():
     dataset = json.load(open(args.data_path, "r"))
     dataset_batched = batchify_no_collate(dataset, args.batch_size)
 
-    data_w_hard_negative = []
+    out_f = open(args.out_path, "w")
 
     with torch.no_grad():
 
@@ -200,9 +200,7 @@ def main():
             for item, result in zip(batch, result_list):
                 new_item = copy.deepcopy(item)
                 new_item["hard_negative_img"] = result
-                data_w_hard_negative.append(new_item)
-
-    json.dump(data_w_hard_negative, open(args.out_path, "w"), indent=4)
+                out_f.write(json.dumps(new_item)+'\n')
 
 
 
@@ -213,7 +211,7 @@ if __name__ == "__main__":
 
 # CUDA_VISIBLE_DEVICES="0,1" python create_hard_negative.py \
 # --data_path ../downloaded_data/train-filtered_wo_cc12m.json \
-# --out_path ../downloaded_data/train-filtered_wo_cc12m-hn.json \
+# --out_path ../downloaded_data/train-filtered_wo_cc12m-hn.jsonl \
 # --tsv_path ../downloaded_data/whole-filtered_wo_cc12m.tsv \
 # --fvecs_dir fvecs_whole-filtered_wo_cc12m \
 # --hf_path ../hf_model \
@@ -223,7 +221,7 @@ if __name__ == "__main__":
 
 # CUDA_VISIBLE_DEVICES="2,3" python create_hard_negative.py \
 # --data_path ../downloaded_data/validation-filtered_wo_cc12m.json \
-# --out_path ../downloaded_data/validation-filtered_wo_cc12m-hn.json \
+# --out_path ../downloaded_data/validation-filtered_wo_cc12m-hn.jsonl \
 # --tsv_path ../downloaded_data/whole-filtered_wo_cc12m.tsv \
 # --fvecs_dir fvecs_whole-filtered_wo_cc12m \
 # --hf_path ../hf_model \
@@ -234,7 +232,7 @@ if __name__ == "__main__":
 
 # CUDA_VISIBLE_DEVICES="4,5,6,7" python create_hard_negative.py \
 # --data_path ../downloaded_data/train-filtered.json \
-# --out_path ../downloaded_data/train-filtered-hn.json \
+# --out_path ../downloaded_data/train-filtered-hn.jsonl \
 # --tsv_path ../downloaded_data/whole-filtered.tsv \
 # --fvecs_dir fvecs_whole-filtered \
 # --hf_path ../hf_model \

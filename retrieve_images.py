@@ -71,6 +71,8 @@ def main():
                         default=None, type=str)
     parser.add_argument("--index_str",
                         default="IVF65536,Flat", type=str)
+    parser.add_argument("--nprobe",
+                        default=4, type=int)
 
     # model
     parser.add_argument("--vision_model",
@@ -142,6 +144,7 @@ def main():
         index_path=args.index_path,
         fvec_root=args.fvecs_dir,
         index_str=args.index_str,
+        nprobe=args.nprobe,
     )
     
     ref_data = [
