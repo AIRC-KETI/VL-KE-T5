@@ -45,6 +45,8 @@ from data_utils import DatasetForImages
 from modeling_encoder import (
     VisionT5SimpleBiEncoder,
     VisionT5MeanBiEncoder,
+    VisionT5SimpleBiEncoderHN,
+    VisionT5MeanBiEncoderHN,
 )
 
 from training_retriever import (
@@ -80,7 +82,10 @@ def main():
 
     parser.add_argument("--model_cls", default="VisionT5MeanBiEncoder", 
                         choices=["VisionT5SimpleBiEncoder", 
-                                "VisionT5MeanBiEncoder"],
+                                "VisionT5MeanBiEncoder",
+                                "VisionT5SimpleBiEncoderHN",
+                                "VisionT5MeanBiEncoderHN",
+                                ],
                         type=str, help="model class")
     parser.add_argument("--dir_suffix",
                         default=None, type=str)
@@ -230,4 +235,11 @@ if __name__ == "__main__":
 # --fvecs_dir fvecs_cc12m_freeze_lm \
 # --hf_path default \
 # --dir_suffix freeze_lm \
+# --batch_size 64 
+
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 create_index4retriever.py \
+# --data_path ../downloaded_data/cc12m/cc12m_filtered_new.tsv \
+# --image_root_dir ../downloaded_data/cc12m/images_384 \
+# --fvecs_dir fvecs_cc12m_hn \
+# --hf_path output/VisionT5MeanBiEncoderHN-google_vit-base-patch16-384-KETI-AIR_ke-t5-base/hf \
 # --batch_size 64 

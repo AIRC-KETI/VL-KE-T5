@@ -402,6 +402,98 @@ class VisionT5MeanBiEncoder(BiEncoderBase):
         return cls(vision_encoder=vision_encoder, language_encoder=language_encoder)
 
 
+class BiEncoderBaseHN(BiEncoderBase):
+    _ENCODER_TYPE='biencoder'
+
+    def __init__(self,
+                args=None,
+                vision_encoder=None,
+                language_encoder=None):
+        super(BiEncoderBaseHN, self).__init__(
+            args=args,
+            vision_encoder=vision_encoder,
+            language_encoder=language_encoder
+        )
+
+    def forward(self, batch):
+        language_repr = self.encode_text(batch)
+        vision_repr_pos = self.encode_image(batch["pos"])
+        vision_repr_neg = self.encode_image(batch["neg"])
+        
+        return {
+            'language_repr': language_repr, 
+            'vision_repr_pos': vision_repr_pos,
+            'vision_repr_neg': vision_repr_neg,
+        }
+
+
+class VisionT5SimpleBiEncoderHN(BiEncoderBaseHN):
+    _ENCODER_TYPE='biencoder'
+
+    def __init__(self,
+                args=None,
+                vision_encoder=None,
+                language_encoder=None):
+        super(VisionT5SimpleBiEncoderHN, self).__init__(
+            args=args,
+            vision_encoder=vision_encoder,
+            language_encoder=language_encoder
+        )
+
+    def load_weight_from_args(self, args):
+        self.vision_encoder = ViTModel.from_pretrained(args.vision_model)
+        self.language_encoder = T5EncoderSimple.from_pretrained(args.language_model)
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        root_path = args[0]
+        
+        enc_path_q = os.path.join(root_path, "vision")
+        args_q = copy.deepcopy(list(args))
+        args_q[0] = enc_path_q
+        vision_encoder = ViTModel.from_pretrained(*tuple(args_q), **kwargs)
+
+        enc_path_k = os.path.join(root_path, "language")
+        args_k = copy.deepcopy(list(args))
+        args_k[0] = enc_path_k
+        language_encoder = T5EncoderSimple.from_pretrained(*tuple(args_k), **kwargs)
+
+        return cls(vision_encoder=vision_encoder, language_encoder=language_encoder)
+
+
+class VisionT5MeanBiEncoderHN(BiEncoderBaseHN):
+    _ENCODER_TYPE='biencoder'
+
+    def __init__(self,
+                args=None,
+                vision_encoder=None,
+                language_encoder=None):
+        super(VisionT5MeanBiEncoderHN, self).__init__(
+            args=args,
+            vision_encoder=vision_encoder,
+            language_encoder=language_encoder
+        )
+
+    def load_weight_from_args(self, args):
+        self.vision_encoder = ViTModel.from_pretrained(args.vision_model)
+        self.language_encoder = T5EncoderMean.from_pretrained(args.language_model)
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        root_path = args[0]
+        
+        enc_path_q = os.path.join(root_path, "vision")
+        args_q = copy.deepcopy(list(args))
+        args_q[0] = enc_path_q
+        vision_encoder = ViTModel.from_pretrained(*tuple(args_q), **kwargs)
+
+        enc_path_k = os.path.join(root_path, "language")
+        args_k = copy.deepcopy(list(args))
+        args_k[0] = enc_path_k
+        language_encoder = T5EncoderMean.from_pretrained(*tuple(args_k), **kwargs)
+
+        return cls(vision_encoder=vision_encoder, language_encoder=language_encoder)
+
 
 
 if __name__ == "__main__":

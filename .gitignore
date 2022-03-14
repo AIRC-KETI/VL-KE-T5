@@ -12,6 +12,7 @@ fvecs_mmcommons/
 fvecs_whole-filtered/
 fvecs_whole-filtered_wo_cc12m/
 fvecs_cc12m_freeze_lm/
+fvecs_cc12m_hn/
 output/
 hf_model/
 md/

@@ -41,10 +41,8 @@ from transformers import AutoTokenizer, ViTFeatureExtractor
 from torch.utils.tensorboard import SummaryWriter
 
 
-from data_utils import DatasetForVLAlign
+from data_utils import DatasetForVLAlignHNDDP
 from modeling_encoder import (
-    VisionT5SimpleBiEncoder,
-    VisionT5MeanBiEncoder,
     VisionT5SimpleBiEncoderHN,
     VisionT5MeanBiEncoderHN,
 )
@@ -78,11 +76,17 @@ def all_gather(tensors, args, **kwargs):
 
 def compute_loss(model, batch, loss_fn, args):
     outputs = model(batch)
-    # outputs: language_repr, vision_repr- [batch_size, model_dim]
+    # outputs: language_repr, vision_repr_pos, vision_repr_neg - [batch_size, model_dim]
 
     batch_size = outputs["language_repr"].size(0)
-    scores = torch.mm(outputs["language_repr"], outputs["vision_repr"].t())
-    # scores(diagonal): [batch_size, batch_size]
+
+    # pos_scores(diagonal): [batch_size, batch_size]
+    # neg_scores: [batch_size, batch_size]
+    pos_scores = torch.mm(outputs["language_repr"], outputs["vision_repr_pos"].t())
+    neg_scores = torch.mm(outputs["language_repr"], outputs["vision_repr_neg"].t())
+
+    scores = torch.cat([pos_scores, neg_scores], dim=1)
+    # scores: [batch_size, 2 X batch_size]
 
     target = torch.arange(batch_size).to(outputs["language_repr"].device)
 
@@ -93,27 +97,36 @@ def compute_loss(model, batch, loss_fn, args):
 
 def compute_loss_over_device(model, batch, loss_fn, args):
     outputs = model(batch)
-    # outputs: language_repr, vision_repr- [batch_size, model_dim]
+    # outputs: language_repr, vision_repr_pos, vision_repr_neg - [batch_size, model_dim]
 
     language_repr = outputs["language_repr"]
-    vision_repr = outputs["vision_repr"]
+    vision_repr_pos = outputs["vision_repr_pos"]
+    vision_repr_neg = outputs["vision_repr_neg"]
 
     batch_size = language_repr.size(0)
 
     # blocking call (all_gather)
     with torch.no_grad():
         language_repr_gathered = all_gather(language_repr, args)
-        vision_repr_gathered = all_gather(vision_repr, args)
-        # language_repr_gathered, vision_repr_gathered - [world_size, batch_size, model_dim]
+        vision_repr_gathered_pos = all_gather(vision_repr_pos, args)
+        vision_repr_gathered_neg = all_gather(vision_repr_neg, args)
+        # language_repr_gathered, vision_repr_gathered_pos, vision_repr_gathered_neg - [world_size, batch_size, model_dim]
 
     language_repr_gathered[args.rank] = language_repr
-    vision_repr_gathered[args.rank] = vision_repr
+    vision_repr_gathered_pos[args.rank] = vision_repr_pos
+    vision_repr_gathered_neg[args.rank] = vision_repr_neg
 
     language_repr_cat = torch.cat(language_repr_gathered, dim=0)
-    vision_repr_cat = torch.cat(vision_repr_gathered, dim=0)
-    # language_repr_cat, vision_repr_cat - [batch_size*world_size, model_dim]
+    vision_repr_cat_pos = torch.cat(vision_repr_gathered_pos, dim=0)
+    vision_repr_cat_neg = torch.cat(vision_repr_gathered_neg, dim=0)
+    # language_repr_cat, vision_repr_cat_pos, vision_repr_cat_neg - [batch_size*world_size, model_dim]
 
-    scores = torch.mm(language_repr_cat, vision_repr_cat.t())
+    pos_scores = torch.mm(language_repr_cat, vision_repr_cat_pos.t())
+    neg_scores = torch.mm(language_repr_cat, vision_repr_cat_neg.t())
+    scores = torch.cat([pos_scores, neg_scores], dim=1)
+    # pos_scores, neg_scores: [batch_size*world_size, batch_size*world_size]
+    # scores: [batch_size*world_size, 2*batch_size*world_size]
+
     target = torch.arange(batch_size * args.world_size).to(language_repr.device)
 
     retrieve_loss = loss_fn(scores, target)
@@ -124,14 +137,19 @@ def compute_loss_over_device(model, batch, loss_fn, args):
 
 def retrieval_eval(model, batch):
     outputs = model(batch)
-    # outputs: language_repr, vision_repr- [batch_size, model_dim]
+    # outputs: language_repr, vision_repr_pos, vision_repr_neg - [batch_size, model_dim]
 
     batch_size = outputs["language_repr"].size(0)
-    scores = torch.mm(outputs["language_repr"], outputs["vision_repr"].t())
+    # pos_scores(diagonal): [batch_size, batch_size]
+    # neg_scores: [batch_size, batch_size]
+    pos_scores = torch.mm(outputs["language_repr"], outputs["vision_repr_pos"].t())
+    neg_scores = torch.mm(outputs["language_repr"], outputs["vision_repr_neg"].t())
+    scores = torch.cat([pos_scores, neg_scores], dim=1)
+    # scores: [batch_size, 2 X batch_size]
 
     target = torch.arange(batch_size).to(outputs["language_repr"].device)
 
-    # scores: [batch_size, batch_size]
+    # scores: [batch_size, 2 X batch_size]
     ranked = scores.argsort(dim=1, descending=True)
     # [[0.1, 0.3, -0.2, 0.14 ]] -> [[1, 3, 0, 2]] (index of score - descending order)
     idx2ranked_t = ranked.argsort(dim=1)
@@ -139,12 +157,10 @@ def retrieval_eval(model, batch):
     # [[1, 3, 0, 2]] -> [[2, 0, 3, 1]] (index to rank)
     rrs = []
     for t, idx2ranked in zip(target, idx2ranked_t):
-        rrs.append(1 / (idx2ranked[t].item() + 1))
+        rrs.append(1 / (idx2ranked[t] + 1))
     
-    # reciprocal rank for 1st, 2nd hop
-    return {
-        "mrr": torch.tensor(np.mean(rrs)).to(outputs["language_repr"].device)
-        }
+    # reciprocal rank
+    return torch.mean(torch.stack(rrs))
 
 
 def create_dir_if_not_exist(path):
@@ -208,12 +224,6 @@ def get_env_var(env_var, type_cls, default_val):
 
 
 MODEL_CLS = {
-    "VisionT5SimpleBiEncoder": {
-        "model_cls": VisionT5SimpleBiEncoder,
-    },
-    "VisionT5MeanBiEncoder": {
-        "model_cls": VisionT5MeanBiEncoder,
-    },
     "VisionT5SimpleBiEncoderHN": {
         "model_cls": VisionT5SimpleBiEncoderHN,
     },
@@ -222,17 +232,14 @@ MODEL_CLS = {
     },
 }
 
-
 def main():
     parser = argparse.ArgumentParser()
 
     # data
-    parser.add_argument("--train_path",
-                        default="data/vl_parallel/train_384_filtered.json", type=str)
-    parser.add_argument("--validation_path",
-                        default="data/vl_parallel/validation_384_filtered.json", type=str)
+    parser.add_argument("--data_root",
+                        default="../downloaded_data/filtered-wo_cc12m-hn", type=str)
     parser.add_argument("--image_root_dir",
-                        default=None, type=str)
+                        default="../downloaded_data", type=str)
 
     # model
     parser.add_argument("--vision_model",
@@ -240,9 +247,9 @@ def main():
     parser.add_argument("--language_model",
                         default="KETI-AIR/ke-t5-base", type=str)
 
-    parser.add_argument("--model_cls", default="VisionT5MeanBiEncoder", 
-                        choices=["VisionT5SimpleBiEncoder", 
-                                "VisionT5MeanBiEncoder"],
+    parser.add_argument("--model_cls", default="VisionT5MeanBiEncoderHN", 
+                        choices=["VisionT5SimpleBiEncoderHN", 
+                                "VisionT5MeanBiEncoderHN"],
                         type=str, help="model class")
     parser.add_argument("--dir_suffix",
                         default=None, type=str)
@@ -376,48 +383,39 @@ def main():
     text_tokenizer = AutoTokenizer.from_pretrained(args.language_model)
 
     # create dataset
-    train_dataset = DatasetForVLAlign(
-            file_path=args.train_path,
+    train_dataset = DatasetForVLAlignHNDDP(
+            data_root=args.data_root,
             image_tokenizer=image_tokenizer,
             text_tokenizer=text_tokenizer,
-            image_root_dir=args.image_root_dir
+            split="train",
+            image_root=args.image_root_dir,
+            shuffle=True,
+            deterministic=args.deterministic,
         )
 
         
-    validation_dataset = DatasetForVLAlign(
-            file_path=args.validation_path,
+    validation_dataset = DatasetForVLAlignHNDDP(
+            data_root=args.data_root,
             image_tokenizer=image_tokenizer,
             text_tokenizer=text_tokenizer,
-            image_root_dir=args.image_root_dir
+            split="validation",
+            image_root=args.image_root_dir,
+            shuffle=False,
+            deterministic=args.deterministic,
         )
 
     collate_fn = validation_dataset.get_collate_fn()
     
-    
-    # create sampler for distributed data loading without redundant
-    train_sampler = None
-    validation_sampler = None
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_dataset,
-            seed=data_seed)
-        validation_sampler = torch.utils.data.distributed.DistributedSampler(
-            validation_dataset,
-            seed=data_seed)
 
     # create data loader
     train_loader = DataLoader(train_dataset,
                             batch_size=args.batch_size,
-                            shuffle=(train_sampler is None),
                             num_workers=args.num_workers,
-                            sampler=train_sampler,
                             collate_fn=collate_fn)
 
     validation_loader = DataLoader(validation_dataset,
                              batch_size=args.batch_size,
-                             shuffle=False,
                              num_workers=args.num_workers,
-                             sampler=validation_sampler,
                              collate_fn=collate_fn)
     
     
@@ -491,7 +489,7 @@ def main():
         # set epoch to train sampler 
         # for different order of example between epochs
         if args.distributed:
-            train_sampler.set_epoch(epoch)
+            train_dataset.set_epoch(epoch)
         
         # training
         train(train_loader, model, optimizer, scheduler, epoch, args, path_info, summary_logger=summary_logger)
@@ -542,8 +540,8 @@ def train(train_loader, model, optimizer, scheduler, epoch, args, path_info, sum
 
     for step_inbatch, batch in enumerate(train_loader):
         # compute loss
-        #loss = compute_loss(model, batch, loss_fn, args)
-        loss = compute_loss_over_device(model, batch, loss_fn, args)
+        loss = compute_loss(model, batch, loss_fn, args)
+        #loss = compute_loss_over_device(model, batch, loss_fn, args)
 
         # backward pass            
         loss.backward()
@@ -565,7 +563,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, args, path_info, sum
                 end = time.time()
 
                 mrr = retrieval_eval(model, batch)
-                avg_mrr = reduce_tensor(mrr["mrr"], args)
+                avg_mrr = reduce_tensor(mrr, args)
 
                 if args.local_rank == 0 or not args.distributed:
 
@@ -626,7 +624,7 @@ def validate(eval_loader, model, epoch, args):
             mrr = retrieval_eval(model, batch)
 
             avg_loss = reduce_tensor(loss, args)
-            avg_mrr = reduce_tensor(mrr["mrr"], args)
+            avg_mrr = reduce_tensor(mrr, args)
 
             losses.update(avg_loss.item())
             mrr_meter.update(avg_mrr.item())
@@ -674,13 +672,18 @@ if __name__ == "__main__":
 
 
 
-# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever.py
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever_hn.py
 
-# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever.py \
-# --train_path ../downloaded_data/whole-filtered_wo_cc12m.json \
-# --validation_path ../downloaded_data/validation-filtered_wo_cc12m.json \
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever_hn.py \
+# --data_root ../downloaded_data/filtered-wo_cc12m-hn \
+# --image_root_dir ../downloaded_data \
+# --epochs 3 \
+# --batch_size 20
+
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever_hn.py \
+# --data_root ../downloaded_data/filtered-wo_cc12m-hn \
 # --image_root_dir ../downloaded_data \
 # --dir_suffix freeze_lm \
 # --epochs 3 \
-# --batch_size 32 \
+# --batch_size 20 \
 # --freeze_lm

@@ -47,6 +47,8 @@ from data_utils import DatasetForImages
 from modeling_encoder import (
     VisionT5SimpleBiEncoder,
     VisionT5MeanBiEncoder,
+    VisionT5SimpleBiEncoderHN,
+    VisionT5MeanBiEncoderHN,
 )
 
 from training_retriever import (
@@ -136,16 +138,16 @@ def main():
 
     model_device = torch.device('cuda:{}'.format(args.model_gpu))
 
-    # faiss_scorer = FaissScorerExhaustiveMultiGPU(
-    #         fvec_root=args.fvecs_dir,
-    #         gpu_list=args.scorer_gpus
-    #     )
-    faiss_scorer = FaissScorer(
-        index_path=args.index_path,
-        fvec_root=args.fvecs_dir,
-        index_str=args.index_str,
-        nprobe=args.nprobe,
-    )
+    faiss_scorer = FaissScorerExhaustiveMultiGPU(
+            fvec_root=args.fvecs_dir,
+            gpu_list=args.scorer_gpus
+        )
+    # faiss_scorer = FaissScorer(
+    #     index_path=args.index_path,
+    #     fvec_root=args.fvecs_dir,
+    #     index_str=args.index_str,
+    #     nprobe=args.nprobe,
+    # )
     
     ref_data = [
             item for item in tqdm.tqdm(csv.DictReader(
@@ -286,3 +288,9 @@ if __name__ == "__main__":
 # --data_path ../downloaded_data/cc12m/cc12m_filtered_new.tsv \
 # --fvecs_dir fvecs_cc12m_freeze_lm \
 # --hf_path output/VisionT5MeanBiEncoder-google_vit-base-patch16-384-KETI-AIR_ke-t5-base_freeze_lm/hf
+
+
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4" python retrieve_images.py \
+# --data_path ../downloaded_data/cc12m/cc12m_filtered_new.tsv \
+# --fvecs_dir fvecs_cc12m_hn \
+# --hf_path output/VisionT5MeanBiEncoderHN-google_vit-base-patch16-384-KETI-AIR_ke-t5-base/hf
