@@ -1,0 +1,13 @@
+version: '3'
+services:
+  app:
+    container_name: image-retriever-web-dev
+    restart: always
+    build: .
+    volumes:
+      - ./:/usr/src/app
+    ports:
+      - '80:8080'
+      - '443:8443'
+    environment:
+      RETRIEVER_API_URL: ${RETRIEVER_API_URL}

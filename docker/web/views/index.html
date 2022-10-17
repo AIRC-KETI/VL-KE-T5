@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!--========== JQuery ==========-->
+  <script src="https://code.jquery.com/jquery-3.6.1.min.js"
+    integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script>
+
+  <!--========== CSS ==========-->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!--========== Javascript ==========-->
+  <script src="js/ui_utils.js"></script>
+
+
+  <script>
+    "use strict";
+
+    var num_k = 20;
+
+    function get_images() {
+      const query_text = document.getElementById('searchInput').value;
+      const req = {
+        query: query_text,
+        k: num_k,
+      };
+
+      $.ajax({
+        type: "post",
+        url: "/search",
+        data: JSON.stringify(req),
+        dataType: "json",
+        contentType: "application/json; charset=UTF-8",
+        success: function (res) {
+          $("#image_container").empty();
+          res[0].forEach(function (element) {
+            $("#image_container").append(create_single_img_elem(element));
+          });
+        },
+        error: function (err) {
+          console.log(err);
+        },
+      });
+    }
+
+    $(document).ready(function () {
+
+    });
+
+
+
+
+
+  </script>
+
+  <title>Image Retriever</title>
+
+
+</head>
+
+
+<body>
+
+  <div id="overlay">
+    <div class="overlay_container">
+      <div class="overlay_btn_container">
+        <div class="close close_btn" onclick="overlay_off()"></div>
+      </div>
+
+      <div class="overlay_img_container">
+        <img id="overlay_img" class="overlay_img">
+      </div>
+    </div>
+
+  </div>
+
+  <div class="content_wrapper">
+
+    <div class="text-center">
+      <h1>Image Retriever</h1>
+    </div>
+
+    <form class="search-form button_container" action="javascript:get_images()">
+      <input type="text" placeholder="Search.." name="search" id="searchInput" required>
+      <button type="submit" class="button-17">Search</button>
+    </form>
+
+    <div class="wrapper">
+      <div class="gallery">
+        <div id="image_container">
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+
+</html>
