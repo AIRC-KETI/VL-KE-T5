@@ -127,6 +127,9 @@ def main():
 
     args = parser.parse_args()
 
+    print(args.scorer_gpus)
+    print(args.fvecs_dir)
+
     
     path_info = create_directory_info(args, create_dir=False)
 
@@ -280,7 +283,7 @@ def main():
 
 
 if __name__ == "__main__":
-
+    logging.basicConfig(level = logging.INFO)
     main()
 
 

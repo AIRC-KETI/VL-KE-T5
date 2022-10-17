@@ -61,6 +61,15 @@ def mean_pooling(hidden_states, mask=None, sqrt=True):
     return sentence_sums.squeeze(1)
 
 
+def get_last_token_index(mask):
+    # attention masks: [batch_size, seq]
+    
+    batch_size, seq_length = mask.shape[:2]
+    incr = torch.arange(seq_length, device=mask.device, requires_grad=False)
+    incr_m = torch.einsum("i,ji->ji", incr, mask)
+    return torch.argmax(incr_m, dim=1)
+
+
 class SimplePooler(nn.Module):
     def __init__(self, hidden_size, dropout_rate=0.0, layer_norm_eps=1e-12):
         super().__init__()
@@ -113,6 +122,8 @@ class MeanReducer(nn.Module):
         
         # pooled_output: [batch_size, 1, repr_size]
         return pooled_output
+
+
 
 
 class T5EncoderSimple(T5EncoderModel):

@@ -200,6 +200,7 @@ class FaissScorerExhaustiveMultiGPU(object):
     def load_index(self, fvec_root):
 
         logger.info('loading fvecs...')
+        logger.info(self.fpath_list)
         data = [fvecs_read(path) for path in self.fpath_list]
         data = np.concatenate(tuple(data), axis=0)
         d = data.shape[-1]

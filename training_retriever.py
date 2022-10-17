@@ -23,6 +23,7 @@ import shutil
 import logging
 import functools
 
+from tqdm import tqdm
 import numpy as np
 
 import torch
@@ -86,7 +87,7 @@ def compute_loss(model, batch, loss_fn, args):
 
     target = torch.arange(batch_size).to(outputs["language_repr"].device)
 
-    retrieve_loss = loss_fn(scores, target)
+    retrieve_loss = loss_fn(scores/args.logit_temperature, target) + loss_fn(scores.t()/args.logit_temperature, target)
 
     return retrieve_loss
 
@@ -263,6 +264,8 @@ def main():
                         help="number of workers")
     parser.add_argument("--print_freq", default=50,
                         type=int, help="print frequency")
+    parser.add_argument("--global_steps", default=0,
+                        type=int, help="variable for global steps")
 
     # distributed setting
     parser.add_argument("--local_rank", type=int, default=-1,
@@ -289,6 +292,10 @@ def main():
                         type=float, help="The initial learning rate for Adam.")
     parser.add_argument("--warmup", default=0.1,
                         type=float, help="warm-up proportion for linear scheduling")
+    parser.add_argument("--logit_temperature", default=1.0,
+                        type=float, help="temperature for logits")
+    parser.add_argument("--label_smoothing", default=0.1,
+                        type=float, help="label smoothing for cross entropy")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
                         help="Epsilon for Adam optimizer.")
     parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
@@ -303,7 +310,8 @@ def main():
                         type=int, help="seed for torch manual seed")
     parser.add_argument("--deterministic", action='store_true',
                         help="deterministic")
-    
+    parser.add_argument("--save_every_epoch", action='store_true',
+                        help="save check points on every epochs")
     parser.add_argument("--freeze_lm", action='store_true',
                         help="freeze language model")
 
@@ -441,6 +449,7 @@ def main():
                     device_ids=[args.local_rank],
                     output_device=args.local_rank)
     
+
     if args.resume:
         # Use a local scope to avoid dangling references
         def resume():
@@ -457,6 +466,11 @@ def main():
                         scheduler.load_state_dict(checkpoint['scheduler'])
 
                 args.start_epoch = checkpoint['epoch']
+                if args.resume.endswith('-train'):
+                    args.global_steps = checkpoint['global_step']
+                    logger.info("=> global_steps '{}'".format(args.global_steps))
+                    args.start_epoch-=1
+
                 if args.local_rank == 0 or not args.distributed:
                     best_score = checkpoint['best_score'] if 'best_score' in checkpoint else 0
                 logger.info("=> loaded checkpoint '{}' (epoch {})"
@@ -471,6 +485,7 @@ def main():
                 logger.info("=> no checkpoint found at '{}'".format(args.resume))
         resume()
     
+    optimizer.param_groups[0]['capturable'] = True
 
     # save model as huggingface model
     if args.hf_path:
@@ -485,7 +500,7 @@ def main():
             logger.info('hf model is saved in {}'.format(args.hf_path))
         exit()
 
-
+    
     # run training
     for epoch in range(args.start_epoch, args.epochs):
         # set epoch to train sampler 
@@ -495,6 +510,7 @@ def main():
         
         # training
         train(train_loader, model, optimizer, scheduler, epoch, args, path_info, summary_logger=summary_logger)
+        args.global_steps = 0
 
         scores = validate(validation_loader, model, epoch, args)
 
@@ -508,6 +524,8 @@ def main():
                 with open(os.path.join(path_info["model_dir"], "best_score.json"), "w") as f:
                     json.dump(best_result, f, indent=4)
 
+            ckpt_path = os.path.join(path_info["weights_dir"], "ckpt-{}.pth".format(epoch))  if args.save_every_epoch else path_info["ckpt_path"]
+
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
@@ -515,7 +533,7 @@ def main():
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict() if scheduler is not None else scheduler,
             }, is_best,
-                path_info["ckpt_path"],
+                ckpt_path,
                 path_info["best_model_path"])
 
             summary_logger.add_scalar('eval/loss',
@@ -525,13 +543,15 @@ def main():
 
 
 def train(train_loader, model, optimizer, scheduler, epoch, args, path_info, summary_logger=None):
-    loss_fn = CrossEntropyLoss(ignore_index=-1)
+    loss_fn = CrossEntropyLoss(ignore_index=-1, label_smoothing=args.label_smoothing)
 
     # calc batch time
     batch_time = AverageMeter()
     losses = AverageMeter()
     
     steps_per_epoch = len(train_loader)
+    pass_n_steps = args.global_steps % steps_per_epoch
+    logger.info("pass_n_steps: {}".format(pass_n_steps))
 
     # switch to train mode (for drop out)
     model.train()
@@ -540,10 +560,15 @@ def train(train_loader, model, optimizer, scheduler, epoch, args, path_info, sum
     # zero grad
     optimizer.zero_grad()
 
+    progress_bar = tqdm(range(steps_per_epoch), desc="[{}]".format(epoch), disable=args.local_rank != 0)
+
     for step_inbatch, batch in enumerate(train_loader):
+        if step_inbatch < pass_n_steps:
+            progress_bar.update(1)
+            continue
         # compute loss
-        #loss = compute_loss(model, batch, loss_fn, args)
-        loss = compute_loss_over_device(model, batch, loss_fn, args)
+        loss = compute_loss(model, batch, loss_fn, args)
+        # loss = compute_loss_over_device(model, batch, loss_fn, args)
 
         # backward pass            
         loss.backward()
@@ -602,7 +627,7 @@ def train(train_loader, model, optimizer, scheduler, epoch, args, path_info, sum
 
 def validate(eval_loader, model, epoch, args):
     # loss function
-    loss_fn = CrossEntropyLoss(ignore_index=-1)
+    loss_fn = CrossEntropyLoss(ignore_index=-1, label_smoothing=args.label_smoothing)
 
     steps_per_epoch = len(eval_loader)
 
@@ -684,3 +709,62 @@ if __name__ == "__main__":
 # --epochs 3 \
 # --batch_size 32 \
 # --freeze_lm
+
+
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever.py \
+# --train_path ../downloaded_data/train-filtered.json \
+# --validation_path ../downloaded_data/validation-filtered.json \
+# --image_root_dir ../downloaded_data \
+# --dir_suffix cc12m_e16_lr1e3 \
+# --epochs 16 \
+# --batch_size 512 \
+# --warmup 0.01 \
+# --learning_rate 0.001 \
+# --weight_decay 0.00001 \
+# --save_every_epoch \
+# --gradient_accumulation_steps 32
+
+
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever.py \
+# --train_path ../downloaded_data/train-filtered.json \
+# --validation_path ../downloaded_data/validation-filtered.json \
+# --image_root_dir ../downloaded_data \
+# --dir_suffix cc12m_e16_lr1e4 \
+# --epochs 16 \
+# --batch_size 512 \
+# --warmup 0.01 \
+# --learning_rate 0.0001 \
+# --weight_decay 0.00001 \
+# --save_every_epoch \
+# --gradient_accumulation_steps 32
+
+
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever.py \
+# --train_path ../downloaded_data/train-filtered.json \
+# --validation_path ../downloaded_data/validation-filtered.json \
+# --image_root_dir ../downloaded_data \
+# --dir_suffix cc12m_e3_lr1e3 \
+# --epochs 3 \
+# --batch_size 512 \
+# --warmup 0.01 \
+# --learning_rate 0.001 \
+# --weight_decay 0.00001 \
+# --save_every_epoch \
+# --gradient_accumulation_steps 32
+
+
+
+# CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7" python -m torch.distributed.launch --nproc_per_node=8 training_retriever.py \
+# --train_path ../downloaded_data/train-filtered.json \
+# --validation_path ../downloaded_data/validation-filtered.json \
+# --image_root_dir ../downloaded_data \
+# --dir_suffix cc12m_e3_lr1e3 \
+# --epochs 3 \
+# --batch_size 512 \
+# --warmup 0.01 \
+# --learning_rate 0.001 \
+# --weight_decay 0.00001 \
+# --save_every_epoch \
+# --gradient_accumulation_steps 32 \
+# --resume output/VisionT5MeanBiEncoder-google_vit-base-patch16-384-KETI-AIR_ke-t5-base_cc12m_e3_lr1e3/weights/checkpoint.pth-train
+

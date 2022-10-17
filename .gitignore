@@ -20,6 +20,11 @@ md/
 *.tsv
 *.zip
 *_test.py
+veld_e1_linear
+vl_e*
+vl_norm*
+sample.jpg
+sample2.jpg
 
 # Distribution / packaging
 .Python
