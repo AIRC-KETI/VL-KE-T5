@@ -375,6 +375,10 @@ faiss_scorer = FaissScorerExhaustiveMultiGPU(
 
 [VisionT5MeanBiEncoder (Language Lock)](https://drive.google.com/file/d/1WNZVYuAva7sq4x5lKmlMYTh2S1FwFVix/view?usp=sharing)
 
+[VisionT5MeanBiEncoder + CC 12M 3 epochs](https://drive.google.com/file/d/1XXkXovgLhxn8nydQequfRid31Ri69l2e/view?usp=sharing)
+
+[VisionEncoderLanguageDecoder(VELD) + CC 12M 1 epoch](https://drive.google.com/file/d/10VeuC15_CdNJ2HBcfR8O078aJZM6cktj/view?usp=sharing)
+
 ### Data
 
 
@@ -471,6 +475,54 @@ cc12m에서 검색된 이미지 샘플들을 참조하려면 [CC 12M 샘플](sam
 mmcommons에서 검색된 이미지 샘플들을 참조하려면 [exhaustive 샘플](samples/samples_mmcommons.md), [OPQ192-768 샘플](samples/samples_mmcommons_OPQ192_768.md), [OPQ64-256 샘플](samples/samples_mmcommons_OPQ64_256.md)을 참조하세요.
 
 cc12m에서 언어모델을 학습되지 않도록 gradient를 freeze시키고 학습한 모델로 검색된 이미지 샘플들을 참조하려면 [exhaustive 샘플](samples/samples_cc12m_freeze_lm.md), [OPQ192-768 샘플](samples/samples_cc12m_freeze_lm_OPQ192_768.md), [OPQ64-256 샘플](samples/samples_cc12m_freeze_lm_OPQ64_256.md)을 참조하세요.
+
+
+## Vision Encoder Language Decoder (VELD)
+
+구글의 [Contrastive Captioners](https://arxiv.org/abs/2205.01917)와 같은 방식으로 학습된 Vision Encoder + Language Decoder 구조의 모델입니다.
+
+
+```python
+
+from modeling_veldt5 import VELDT5Model
+from transformers import AutoTokenizer, ViTFeatureExtractor
+from PIL import Image
+
+MODEL_PATH = "veld_e1_linear"
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+feature_extractor = ViTFeatureExtractor.from_pretrained(MODEL_PATH)
+
+images = [Image.open("images/sample.jpg"), Image.open("images/sample2.jpg")]
+pixel_values = feature_extractor(images=images, return_tensors="pt").pixel_values
+
+model = VELDT5Model.from_pretrained(MODEL_PATH)
+
+outputs = model.generate(
+            pixel_values=pixel_values,
+            num_beams=4,
+            # do_sample=True,
+            max_new_tokens=40,
+            num_return_sequences=4,
+        )
+
+for img_idx, output in enumerate(outputs):
+    print("image only {}: ".format(img_idx), tokenizer.decode(output, skip_special_tokens=True))
+
+
+''' stdout
+image only 0:  A baseball player is standing in front of a baseball field.
+image only 1:  A baseball player is standing in front of a baseball stadium.
+image only 2:  A baseball player is standing in front of a field.
+image only 3:  A baseball player is standing in front of a stadium.
+image only 4:  해변에 서 있는 사람.
+image only 5:  해변에 서 있는 여자
+image only 6:  해변에 서 있는 여자.
+image only 7:  해변에 서 있는 사람
+'''
+
+```
+
 
 ## Acknowledgement
 
