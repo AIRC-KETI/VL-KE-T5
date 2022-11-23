@@ -377,6 +377,8 @@ faiss_scorer = FaissScorerExhaustiveMultiGPU(
 
 [VisionT5MeanBiEncoder + CC 12M 3 epochs](https://drive.google.com/file/d/1XXkXovgLhxn8nydQequfRid31Ri69l2e/view?usp=sharing)
 
+[VisionT5MeanBiEncoder (norm) + CC 12M 3 epochs](https://drive.google.com/file/d/1mayNQ9DToFAk1ecHyNFVY-MRKK5X5xAi/view?usp=share_link)
+
 [VisionEncoderLanguageDecoder(VELD) + CC 12M 1 epoch](https://drive.google.com/file/d/10VeuC15_CdNJ2HBcfR8O078aJZM6cktj/view?usp=sharing)
 
 ### Data
