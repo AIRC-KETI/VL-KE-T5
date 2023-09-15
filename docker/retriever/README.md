@@ -31,7 +31,7 @@ docker build -t keti/image_retriever:v1 .
 ```bash
 DATA_PATH="다운로드한 파일들이 있는 디렉토리 경로 (절대경로)"
 
-docker run --gpus all --rm -it -p 8080:8080 \
+docker run --gpus all --rm -it -p 5000:5000 \
 -v ${DATA_PATH}:/root/app/data \
 --name image_retriever \
 keti/image_retriever:v1

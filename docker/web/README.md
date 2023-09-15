@@ -16,7 +16,7 @@ docker build -t keti/image_retriever_web_demo:v1 .
 ```bash
 RETRIEVER_API_URL="http://your_retriever_ip:port/api/task"
 
-docker run --gpus all --rm -it -p 5000:5000 \
+docker run --gpus all --rm -it -p 8080:8080 \
 -e RETRIEVER_API_URL=$RETRIEVER_API_URL \
 --name image_retriever_web_demo \
 keti/image_retriever_web_demo:v1
