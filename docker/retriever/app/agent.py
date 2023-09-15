@@ -12,8 +12,13 @@ from modeling_encoder import T5EncoderMean
 
 TOKENIZER_PATH = "KETI-AIR/ke-t5-base"
 LANGUAGE_ENCODER_PATH = "data/hf_model/language"
+
+# 1) If you want to use cc12m dataset
 FAISS_INDEX_PATH = "data/cc12m_filtered_OPQ64_256-IVF262144_HNSW32-PQ64.index"
 URL_DATA_PATH = "data/cc12m_filtered.tsv"
+# 2) If you want to use mmcomons dataset
+# FAISS_INDEX_PATH = "data/mmcommons_filtered_OPQ64_256-IVF262144_HNSW32-PQ64.index"
+# URL_DATA_PATH = "data/mmcommons_filtered.tsv"
 
 class Service:
     task = [

@@ -1,10 +1,12 @@
+import os
 import json
 import requests
 from urllib.parse import urljoin
 
 import pprint
 
-URL = 'http://127.0.0.1:5000'
+
+URL = os.environ["RETRIEVER_API_URL"].split("/api")[0]
 
 # test task_list
 task_list_q = '/api/task_list'

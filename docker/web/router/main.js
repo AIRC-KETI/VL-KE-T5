@@ -1,10 +1,9 @@
-module.exports = function (app) {
+module.exports = function (app, base_uri) {
    app.get('/', function (req, res) {
       res.render('index.html')
    });
 
    const request = require('request');
-   const base_uri = "http://10.1.92.1:5000/api/task"
    app.post('/search', function(req, res){
 
        const options = {

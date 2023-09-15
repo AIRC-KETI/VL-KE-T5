@@ -8,7 +8,9 @@ LABEL maintainer "KETI AIRC sankim <kimsan0622@keti.re.kr>"
 
 ENV EXPOSE_HTTP_PORT=8080
 ENV EXPOSE_HTTPS_PORT=8443
-ENV RETRIEVER_API_URL="http://10.1.92.1:5000/api/task"
+
+# RETRIEVER_API_URL, for example:
+ENV RETRIEVER_API_URL="http://111.111.111.111:5000/api/task"
 
 WORKDIR /usr/src/app
 
