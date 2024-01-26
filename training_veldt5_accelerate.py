@@ -502,7 +502,7 @@ def main():
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
         overrode_max_train_steps = True
     if args.warmup_portion > 0:
-        args.num_warmup_steps = int(args.max_train_steps/max(min(args.warmup_portion, 1), 0))
+        args.num_warmup_steps = int(args.max_train_steps*max(min(args.warmup_portion, 1), 0))
 
     lr_scheduler = get_scheduler(
         name=args.lr_scheduler_type,
